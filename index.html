@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suki Mini POS</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6b6b70;
+    --line: #e3e3e6;
+    --accent: #b3261e;
+    --accent-dark: #8f1e18;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 1.6rem; margin: 0 0 20px; }
+  h2 { font-size: 1.15rem; margin: 28px 0 8px; padding-bottom: 8px; border-bottom: 2px solid var(--text); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line);
+  }
+  .info { min-width: 0; }
+  .name { font-weight: 700; }
+  .price { color: var(--muted); }
+  button {
+    font: inherit; font-weight: 700; cursor: pointer;
+    min-height: 48px; min-width: 88px; padding: 0 18px;
+    border-radius: 8px; border: 2px solid var(--accent);
+  }
+  .add { background: var(--accent); color: #fff; }
+  .add:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  .clear { background: #fff; color: var(--accent); width: 100%; margin-top: 16px; }
+  .clear:hover:not(:disabled) { background: #fdf1f0; }
+  .clear:disabled { color: #a0a0a5; border-color: var(--line); cursor: not-allowed; }
+  button:focus-visible { outline: 3px solid #1a5fd0; outline-offset: 2px; }
+  .empty { color: var(--muted); padding: 14px 0; }
+  .qty { color: var(--muted); white-space: nowrap; }
+  .line-total { font-weight: 700; white-space: nowrap; }
+  .total {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-top: 16px; padding-top: 12px; border-top: 2px solid var(--text);
+    font-size: 1.4rem; font-weight: 700;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Suki Mini POS</h1>
+
+  <section aria-labelledby="menu-title">
+    <h2 id="menu-title">เมนู</h2>
+    <ul id="menu"></ul>
+  </section>
+
+  <section aria-labelledby="cart-title">
+    <h2 id="cart-title">ตะกร้า</h2>
+    <ul id="cart"></ul>
+    <p id="empty" class="empty">ยังไม่มีสินค้าในตะกร้า</p>
+    <div class="total" aria-live="polite">
+      <span>ยอดรวม</span>
+      <span><span id="total">0</span> บาท</span>
+    </div>
+    <button type="button" id="clear" class="clear" disabled>ล้างตะกร้า</button>
+  </section>
+</main>
+
+<script>
+  var MENU = [
+    { id: "pork",  name: "ชุดหมู",   price: 199 },
+    { id: "beef",  name: "ชุดเนื้อ",  price: 249 },
+    { id: "water", name: "น้ำดื่ม",   price: 20  }
+  ];
+
+  var cart = {}; // id -> จำนวน
+  var order = []; // ลำดับการเพิ่มสินค้า
+
+  var menuEl = document.getElementById("menu");
+  var cartEl = document.getElementById("cart");
+  var emptyEl = document.getElementById("empty");
+  var totalEl = document.getElementById("total");
+  var clearBtn = document.getElementById("clear");
+
+  function findItem(id) {
+    for (var i = 0; i < MENU.length; i++) {
+      if (MENU[i].id === id) return MENU[i];
+    }
+    return null;
+  }
+
+  function addToCart(id) {
+    if (!cart[id]) {
+      cart[id] = 0;
+      order.push(id);
+    }
+    cart[id] += 1;
+    render();
+  }
+
+  function clearCart() {
+    cart = {};
+    order = [];
+    render();
+  }
+
+  function renderMenu() {
+    MENU.forEach(function (item) {
+      var li = document.createElement("li");
+
+      var info = document.createElement("div");
+      info.className = "info";
+      var name = document.createElement("div");
+      name.className = "name";
+      name.textContent = item.name;
+      var price = document.createElement("div");
+      price.className = "price";
+      price.textContent = item.price + " บาท";
+      info.appendChild(name);
+      info.appendChild(price);
+
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "add";
+      btn.textContent = "เพิ่ม";
+      btn.setAttribute("aria-label", "เพิ่ม" + item.name + "เข้าตะกร้า");
+      btn.addEventListener("click", function () { addToCart(item.id); });
+
+      li.appendChild(info);
+      li.appendChild(btn);
+      menuEl.appendChild(li);
+    });
+  }
+
+  function render() {
+    cartEl.innerHTML = "";
+    var total = 0;
+
+    order.forEach(function (id) {
+      var item = findItem(id);
+      var qty = cart[id];
+      var lineTotal = item.price * qty;
+      total += lineTotal;
+
+      var li = document.createElement("li");
+      var info = document.createElement("div");
+      info.className = "info";
+      var name = document.createElement("div");
+      name.className = "name";
+      name.textContent = item.name;
+      var q = document.createElement("div");
+      q.className = "qty";
+      q.textContent = item.price + " × " + qty;
+      info.appendChild(name);
+      info.appendChild(q);
+
+      var sum = document.createElement("div");
+      sum.className = "line-total";
+      sum.textContent = lineTotal + " บาท";
+
+      li.appendChild(info);
+      li.appendChild(sum);
+      cartEl.appendChild(li);
+    });
+
+    emptyEl.hidden = order.length > 0;
+    clearBtn.disabled = order.length === 0;
+    totalEl.textContent = total;
+  }
+
+  clearBtn.addEventListener("click", clearCart);
+  renderMenu();
+  render();
+</script>
+</body>
+</html>
