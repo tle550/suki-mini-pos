@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suki Mini POS</title>
+<style>
+  :root {
+    --red: #b01a0e;
+    --orange: #d9480f;
+    --ink: #2b1a14;
+    --muted: #6b5a53;
+    --line: #f0d9cf;
+    --tint: #fff4ee;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #ffffff;
+    color: var(--ink);
+    font-family: "Noto Sans Thai", "Sarabun", "Leelawadee UI", Tahoma, system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.5;
+  }
+  header {
+    background: linear-gradient(135deg, var(--red), var(--orange));
+    color: #ffffff;
+    padding: 28px 16px 24px;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  .tagline {
+    display: inline-block; margin: 0 0 12px; padding: 6px 16px;
+    background: #fff3bf; color: #7a1a0a; border-radius: 999px;
+    font-size: 1.1rem; font-weight: 800;
+  }
+  header h1 { margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: 0.01em; }
+  .emoji { font-size: 1.5rem; margin-right: 6px; }
+  header p { margin: 4px 0 0; font-size: 1rem; }
+  main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
+  h2 { font-size: 1.2rem; margin: 24px 0 10px; }
+  .menu { list-style: none; margin: 0; padding: 0; }
+  .menu li {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--line);
+  }
+  .menu .name { flex: 1; font-weight: 700; font-size: 1.1rem; }
+  .menu .price { color: var(--red); font-weight: 800; white-space: nowrap; }
+  button {
+    font: inherit; font-weight: 700; cursor: pointer; border-radius: 999px;
+    min-height: 46px; padding: 0 20px; border: 2px solid transparent;
+  }
+  .add {
+    background: linear-gradient(135deg, var(--red), var(--orange));
+    color: #ffffff;
+  }
+  .add:active { transform: scale(0.96); }
+  .clear { background: #ffffff; color: var(--red); border-color: var(--red); width: 100%; margin-top: 14px; }
+  .clear:disabled { color: #9a8a84; border-color: var(--line); cursor: not-allowed; }
+  button:focus-visible { outline: 3px solid #1a1a1a; outline-offset: 2px; }
+  .cart { background: var(--tint); border: 1px solid var(--line); border-radius: 14px; padding: 8px 16px 16px; }
+  .cart ul { list-style: none; margin: 0; padding: 0; }
+  .cart li { display: flex; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .cart li .item { flex: 1; }
+  .cart li .sub { font-weight: 700; }
+  .empty { color: var(--muted); padding: 14px 0 6px; }
+  .total {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-top: 12px; font-weight: 800;
+  }
+  .total .amount { font-size: 2rem; color: var(--red); }
+  @media (prefers-reduced-motion: reduce) { .add:active { transform: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <p class="tagline">🔥 ร้อนแรงไฟแรงเวอร์ อร่อยทุกคำ คุ้มทุกสตางค์ ต้องที่นี้!!! 🔥</p>
+    <h1>🍲 Suki Mini POS</h1>
+    <p>สำหรับพนักงานรับออร์เดอร์</p>
+  </div>
+</header>
+
+<main>
+  <h2>🥩 เมนู</h2>
+  <ul class="menu" id="menu"></ul>
+
+  <h2>🛒 ตะกร้า</h2>
+  <section class="cart" aria-live="polite">
+    <p class="empty" id="empty">🔥 ยังไม่มีสินค้า กดปุ่ม “เพิ่ม” เพื่อเริ่มรับออร์เดอร์</p>
+    <ul id="cartList"></ul>
+    <div class="total">
+      <span>ยอดรวม</span>
+      <span class="amount"><span id="total">0</span> บาท</span>
+    </div>
+    <button type="button" class="clear" id="clearBtn" disabled>ล้างตะกร้า</button>
+  </section>
+</main>
+
+<script>
+  var MENU = [
+    { id: "pork", name: "ชุดหมู", emoji: "🐷", price: 199 },
+    { id: "beef", name: "ชุดเนื้อ", emoji: "🥩", price: 249 },
+    { id: "water", name: "น้ำดื่ม", emoji: "💧", price: 20 }
+  ];
+
+  var cart = {}; // id -> จำนวน
+
+  var menuEl = document.getElementById("menu");
+  var listEl = document.getElementById("cartList");
+  var emptyEl = document.getElementById("empty");
+  var totalEl = document.getElementById("total");
+  var clearBtn = document.getElementById("clearBtn");
+
+  function formatBaht(n) {
+    return n.toLocaleString("th-TH");
+  }
+
+  function renderMenu() {
+    MENU.forEach(function (item) {
+      var li = document.createElement("li");
+
+      var name = document.createElement("span");
+      name.className = "name";
+      var icon = document.createElement("span");
+      icon.className = "emoji";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = item.emoji;
+      name.appendChild(icon);
+      name.appendChild(document.createTextNode(item.name));
+
+      var price = document.createElement("span");
+      price.className = "price";
+      price.textContent = formatBaht(item.price) + " บาท";
+
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "add";
+      btn.textContent = "เพิ่ม";
+      btn.setAttribute("aria-label", "เพิ่ม " + item.name + " เข้าตะกร้า");
+      btn.addEventListener("click", function () { addToCart(item.id); });
+
+      li.appendChild(name);
+      li.appendChild(price);
+      li.appendChild(btn);
+      menuEl.appendChild(li);
+    });
+  }
+
+  function addToCart(id) {
+    cart[id] = (cart[id] || 0) + 1;
+    renderCart();
+  }
+
+  function clearCart() {
+    cart = {};
+    renderCart();
+  }
+
+  function renderCart() {
+    listEl.innerHTML = "";
+    var total = 0;
+    var count = 0;
+
+    MENU.forEach(function (item) {
+      var qty = cart[item.id] || 0;
+      if (qty === 0) return;
+      var sub = qty * item.price;
+      total += sub;
+      count += qty;
+
+      var li = document.createElement("li");
+      var label = document.createElement("span");
+      label.className = "item";
+      label.textContent = item.emoji + " " + item.name + " × " + qty;
+      var amt = document.createElement("span");
+      amt.className = "sub";
+      amt.textContent = formatBaht(sub) + " บาท";
+      li.appendChild(label);
+      li.appendChild(amt);
+      listEl.appendChild(li);
+    });
+
+    emptyEl.style.display = count === 0 ? "block" : "none";
+    clearBtn.disabled = count === 0;
+    totalEl.textContent = formatBaht(total);
+  }
+
+  clearBtn.addEventListener("click", clearCart);
+  renderMenu();
+  renderCart();
+</script>
+<p5>
+  *มีปัญหา? ติดต่อผู้ดูแลระบบ!
+</p5>
+<br>
+<p5>
+  เบอร์โทรศัพท์📱: 099-999-9999
+</p5>
+</body>
+</html>
